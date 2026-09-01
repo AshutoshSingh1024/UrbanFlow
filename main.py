@@ -1,7 +1,6 @@
 """
-UrbanFlow Portal — Dual Database Architecture (Open vs Resolved Issues)
-- open_issues.db: Active/open issues queried for live maps and predictions
-- resolved_issues.db: Archived resolved issues
+UrbanFlow Portal — Multi-Department Emergency & Municipal Command Dashboard
+Dual Database (open_issues.db vs resolved_issues.db)
 """
 import math
 import random
@@ -18,7 +17,7 @@ from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
 # ---------------------------------------------------------------------------
-# Paths & Directories
+# Paths & Setup
 # ---------------------------------------------------------------------------
 BASE_DIR = Path(__file__).parent
 STATIC_DIR = BASE_DIR / "static"
@@ -28,9 +27,6 @@ UPLOAD_DIR = BASE_DIR / "uploads"
 for d in (STATIC_DIR, DATA_DIR, UPLOAD_DIR):
     d.mkdir(exist_ok=True)
 
-# ---------------------------------------------------------------------------
-# Dual Database Configuration (SQLite)
-# ---------------------------------------------------------------------------
 OPEN_DB_URL = f"sqlite:///{DATA_DIR / 'open_issues.db'}"
 RESOLVED_DB_URL = f"sqlite:///{DATA_DIR / 'resolved_issues.db'}"
 
@@ -52,6 +48,8 @@ class IssueModel(Base):
     category = Column(String, nullable=False, index=True)
     description = Column(String, default="")
     photo_url = Column(String, nullable=True)
+    resolved_photo_url = Column(String, nullable=True)
+    resolved_by = Column(String, nullable=True)
     reported_by = Column(String, default="citizen")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     resolved_at = Column(DateTime(timezone=True), nullable=True)
@@ -60,6 +58,16 @@ class IssueModel(Base):
     near = Column(String, nullable=True)
 
     def to_dict(self):
+        # Re-attach UTC timezone metadata if SQLite stripped it
+        created_iso = None
+        if self.created_at:
+            # Enforce UTC timezone before formatting to ISO string
+            created_iso = self.created_at.replace(tzinfo=timezone.utc).isoformat()
+            
+        resolved_iso = None
+        if self.resolved_at:
+            resolved_iso = self.resolved_at.replace(tzinfo=timezone.utc).isoformat()
+
         return {
             "id": self.id,
             "lat": self.lat,
@@ -67,16 +75,17 @@ class IssueModel(Base):
             "category": self.category,
             "description": self.description,
             "photo_url": self.photo_url,
+            "resolved_photo_url": self.resolved_photo_url,
+            "resolved_by": self.resolved_by,
             "reported_by": self.reported_by,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
+            "created_at": created_iso,
+            "resolved_at": resolved_iso,
             "status": self.status,
             "duplicate_count": self.duplicate_count,
             "near": self.near,
         }
 
 
-# Create tables in both databases
 Base.metadata.create_all(bind=engine_open)
 Base.metadata.create_all(bind=engine_resolved)
 
@@ -97,10 +106,20 @@ def get_resolved_db() -> Generator[Session, None, None]:
         db.close()
 
 
-# ---------------------------------------------------------------------------
-# Spatial Utilities & Constants
-# ---------------------------------------------------------------------------
-VALID_CATEGORIES = {"pothole", "signal_failure", "waterlogging", "bus_breakdown"}
+VALID_CATEGORIES = {
+    "signal_failure",
+    "accident",
+    "pothole",
+    "waterlogging",
+    "open_manhole",
+    "fire",
+    "building_collapse",
+    "medical_emergency",
+    "trash",
+    "dead_animal",
+    "open_sewage",
+    "bus_breakdown",
+}
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     r = 6371.0
@@ -111,9 +130,6 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * r * math.asin(math.sqrt(a))
 
 
-# ---------------------------------------------------------------------------
-# Seed Data Generation (Populates open_issues.db only)
-# ---------------------------------------------------------------------------
 SEED_HUBS = [
     {"name": "Hinjawadi", "lat": 18.5908, "lng": 73.7392},
     {"name": "Katraj", "lat": 18.4574, "lng": 73.8677},
@@ -121,32 +137,60 @@ SEED_HUBS = [
     {"name": "Shivajinagar", "lat": 18.5308, "lng": 73.8475},
     {"name": "Viman Nagar", "lat": 18.5679, "lng": 73.9143},
     {"name": "Kothrud", "lat": 18.5074, "lng": 73.8077},
+    {"name": "Hadapsar", "lat": 18.5089, "lng": 73.9259},
+    {"name": "Baner", "lat": 18.5590, "lng": 73.7868},
 ]
 
 SEED_DESCRIPTIONS = {
-    "pothole": [
-        "Deep pothole near the signal, buses swerving into oncoming lane.",
-        "Road surface caved in after last week's rain.",
-        "Cluster of small potholes slowing traffic to a crawl.",
-    ],
     "signal_failure": [
-        "Traffic signal stuck on red for 10+ minutes.",
-        "Signal timer display is dead, junction running on guesswork.",
-        "Signal cycling too fast for pedestrians to cross.",
+        "Major junction timer malfunctioning, multi-directional congestion building.",
+        "Traffic light stuck on continuous red during peak hours.",
+    ],
+    "accident": [
+        "Multi-vehicle collision blocking two central lanes. Traffic halted.",
+        "Two-wheeler collision at bypass turn, police intervention needed.",
+    ],
+    "pothole": [
+        "Deep crater on the main lane causing sudden braking and axle damage.",
+        "Cluster of deep road depressions following heavy rain.",
     ],
     "waterlogging": [
-        "Waterlogging after rain, ankle-deep at the crossing.",
-        "Stormwater drain blocked, water spilling onto the carriageway.",
-        "Underpass flooded, two-wheelers avoiding the route.",
+        "Subway/underpass submerged in 2 feet of water. Impassable for sedans.",
+        "Severe water accumulation blocking left carriageway.",
+    ],
+    "open_manhole": [
+        "Uncovered stormwater chamber on walking lane. High pedestrian hazard.",
+        "Broken manhole cover near school crossing.",
+    ],
+    "fire": [
+        "Commercial shop front fire, heavy smoke spreading to main avenue.",
+        "Transformer short circuit fire near residential sector.",
+    ],
+    "building_collapse": [
+        "Old compound wall collapse blocking side road, debris on pathway.",
+        "Partial structural awning collapse near market corridor.",
+    ],
+    "medical_emergency": [
+        "Pedestrian collapsed on sidewalk, ambulance dispatch requested.",
+        "Severe road victim requires immediate paramedic stabilization.",
+    ],
+    "trash": [
+        "Massive garbage dump overflowing onto the road shoulder.",
+        "Unattended commercial food waste creating foul odor and blocking walkway.",
+    ],
+    "dead_animal": [
+        "Stray cattle carcass on median, immediate sanitation disposal needed.",
+        "Large animal body creating traffic obstruction on highway shoulder.",
+    ],
+    "open_sewage": [
+        "Underground sewer pipe ruptured, blackwater overflowing onto street.",
+        "Sanitation line choked, raw sewage spreading towards residential gates.",
     ],
     "bus_breakdown": [
-        "PMPML bus stalled in the middle lane, blocking one side.",
-        "Bus broken down at the stop, queue building up behind it.",
-        "Bus stranded after a tyre burst near the junction.",
+        "PMPML city bus transmission failure stranded in middle lane.",
+        "Electric bus stalled at bus stop entrance, queue forming behind.",
     ],
 }
-
-REPORTERS = ["citizen", "citizen", "citizen", "field_staff"]
 
 
 def seed_database_if_empty():
@@ -155,18 +199,18 @@ def seed_database_if_empty():
         if db.query(IssueModel).first() is None:
             rng = random.Random(42)
             seed_records = []
-            for _ in range(18):
+            for _ in range(26):
                 hub = rng.choice(SEED_HUBS)
                 category = rng.choice(list(VALID_CATEGORIES))
-                lat = round(hub["lat"] + rng.uniform(-0.012, 0.012), 6)
-                lng = round(hub["lng"] + rng.uniform(-0.012, 0.012), 6)
+                lat = round(hub["lat"] + rng.uniform(-0.015, 0.015), 6)
+                lng = round(hub["lng"] + rng.uniform(-0.015, 0.015), 6)
                 issue = IssueModel(
                     lat=lat,
                     lng=lng,
                     category=category,
                     description=rng.choice(SEED_DESCRIPTIONS[category]),
                     photo_url=None,
-                    reported_by=rng.choice(REPORTERS),
+                    reported_by=rng.choice(["citizen", "citizen", "field_staff", "ward_officer"]),
                     created_at=datetime.now(timezone.utc),
                     status="open",
                     duplicate_count=1,
@@ -181,9 +225,6 @@ def seed_database_if_empty():
 
 seed_database_if_empty()
 
-# ---------------------------------------------------------------------------
-# Corridors used by prediction engine
-# ---------------------------------------------------------------------------
 CORRIDORS = [
     {"id": "hinjawadi_wakad", "name": "Hinjawadi – Wakad Link Road",
      "coords": [[18.5908, 73.7392], [18.5993, 73.7649]], "base_load": 1.0},
@@ -210,10 +251,7 @@ def is_peak_hour(ist_hour: int) -> bool:
     return (8 <= ist_hour <= 11) or (17 <= ist_hour <= 21)
 
 
-# ---------------------------------------------------------------------------
-# FastAPI Endpoints
-# ---------------------------------------------------------------------------
-app = FastAPI(title="UrbanFlow Portal")
+app = FastAPI(title="UrbanFlow Multi-Dept Emergency Portal")
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -229,10 +267,6 @@ def get_issues(
     open_db: Session = Depends(get_open_db),
     resolved_db: Session = Depends(get_resolved_db),
 ):
-    """
-    Returns open issues, resolved issues, or both based on the ?status parameter.
-    Defaults to all open + resolved issues for frontend compatibility.
-    """
     if status == "open":
         return [issue.to_dict() for issue in open_db.query(IssueModel).all()]
     if status == "resolved":
@@ -254,9 +288,8 @@ async def create_issue(
     open_db: Session = Depends(get_open_db),
 ):
     if category not in VALID_CATEGORIES:
-        raise HTTPException(400, f"category must be one of {sorted(VALID_CATEGORIES)}")
+        raise HTTPException(400, f"Invalid category. Must be one of {sorted(VALID_CATEGORIES)}")
 
-    # Check for duplicate reports in the active database within 50m
     existing_open = open_db.query(IssueModel).filter(IssueModel.category == category).all()
     for existing in existing_open:
         if haversine_km(lat, lng, existing.lat, existing.lng) < 0.05:
@@ -290,25 +323,29 @@ async def create_issue(
     return {"merged_into": None, "issue": new_issue.to_dict()}
 
 
-@app.patch("/api/issues/{issue_id}/resolve")
-def resolve_issue(
+@app.post("/api/issues/{issue_id}/resolve")
+async def resolve_issue(
     issue_id: str,
+    resolved_by: str = Form("field_staff"),
+    resolution_photo: UploadFile = File(...),
     open_db: Session = Depends(get_open_db),
     resolved_db: Session = Depends(get_resolved_db),
 ):
-    """
-    Finds the issue in open_issues.db, copies it to resolved_issues.db,
-    and removes it from open_issues.db.
-    """
+    if not resolution_photo or not resolution_photo.filename:
+        raise HTTPException(400, "Compulsory on-site proof photo is required to resolve this alert.")
+
     open_issue = open_db.query(IssueModel).filter(IssueModel.id == issue_id).first()
     if not open_issue:
-        # Check if already resolved
         already_resolved = resolved_db.query(IssueModel).filter(IssueModel.id == issue_id).first()
         if already_resolved:
             return already_resolved.to_dict()
-        raise HTTPException(404, "issue not found in active database")
+        raise HTTPException(404, "Issue not found in active database.")
 
-    # Create record in resolved database
+    ext = Path(resolution_photo.filename).suffix or ".jpg"
+    fname = f"resolved_{uuid.uuid4().hex}{ext}"
+    (UPLOAD_DIR / fname).write_bytes(await resolution_photo.read())
+    resolved_photo_url = f"/uploads/{fname}"
+
     resolved_issue = IssueModel(
         id=open_issue.id,
         lat=open_issue.lat,
@@ -316,6 +353,8 @@ def resolve_issue(
         category=open_issue.category,
         description=open_issue.description,
         photo_url=open_issue.photo_url,
+        resolved_photo_url=resolved_photo_url,
+        resolved_by=resolved_by,
         reported_by=open_issue.reported_by,
         created_at=open_issue.created_at,
         resolved_at=datetime.now(timezone.utc),
@@ -327,7 +366,6 @@ def resolve_issue(
     resolved_db.commit()
     resolved_db.refresh(resolved_issue)
 
-    # Remove from open database
     open_db.delete(open_issue)
     open_db.commit()
 
@@ -336,7 +374,6 @@ def resolve_issue(
 
 @app.get("/api/predictions")
 def get_predictions(open_db: Session = Depends(get_open_db)):
-    """Only open/unresolved issues from open_issues.db affect corridor risk."""
     open_issues = open_db.query(IssueModel).all()
     ist_hour = datetime.now(ZoneInfo("Asia/Kolkata")).hour
     peak = is_peak_hour(ist_hour)

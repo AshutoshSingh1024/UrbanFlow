@@ -3,136 +3,406 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>UrbanFlow Portal — Pune</title>
+<title>UrbanFlow — Smart City Operations & Incident Portal</title>
+<!-- Google Fonts: Inter -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Leaflet CSS & JS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
 
-<div id="app">
+<div class="app-container">
 
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-mark">UF</span>
-      <div class="brand-text">
-        <h1>UrbanFlow Portal</h1>
-        <span class="brand-sub">One map. One city. — Team Cypher · SIH 2026</span>
+  <!-- ================= LEFT SIDEBAR ================= -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <h2>UrbanFlow</h2>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-view="dashboard">
+        <span class="nav-icon">📊</span> Dashboard
+      </a>
+      <a href="#" class="nav-item" data-view="mapview">
+        <span class="nav-icon">🗺️</span> Map View
+      </a>
+      <a href="#" class="nav-item" data-view="issues">
+        <span class="nav-icon">📋</span> Issues
+      </a>
+      <a href="#" class="nav-item" data-view="alerts">
+        <span class="nav-icon">🔔</span> Alerts
+        <span class="nav-badge" id="badgeCritical">0</span>
+      </a>
+      <a href="#" class="nav-item" data-view="analytics">
+        <span class="nav-icon">📈</span> Analytics
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-avatar">AD</div>
+      <div class="user-info">
+        <div class="user-name">Admin</div>
+        <div class="user-role" id="sidebarRoleLabel">Traffic Police</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN CONTENT WRAPPER ================= -->
+  <div class="main-wrapper">
+
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="greeting-wrap">
+        <h1>Command Portal <span class="wave">👋</span></h1>
+        <p id="topSubtext">Monitoring live municipal incidents across Pune City.</p>
+      </div>
+
+      <div class="header-actions">
+        <!-- City Selector -->
+        <div class="dropdown-pill">
+          <select id="citySelect">
+            <option>Pune City</option>
+            <option>Pimpri-Chinchwad</option>
+          </select>
+        </div>
+
+        <!-- Department / Role Switcher -->
+        <div class="dropdown-pill dept-pill">
+          <span class="role-label">Dept:</span>
+          <select id="roleSelect">
+            <option value="Traffic Police">Traffic Police</option>
+            <option value="Road Maintenance Crew">Road & Infra</option>
+            <option value="Fire & Rescue Services">Fire & Rescue</option>
+            <option value="Emergency Medical (EMS)">Medical (EMS)</option>
+            <option value="Solid Waste & Sanitation (SWM)">Sanitation</option>
+            <option value="Transit Team">Transit (PMPML)</option>
+            <option value="Citizen">Citizen (Public View)</option>
+          </select>
+        </div>
+
+        <!-- Report Issue Button -->
+        <button id="btnOpenReport" class="btn-primary-green" type="button">
+          <span class="plus-icon">+</span> Report Issue
+        </button>
+      </div>
+    </header>
+
+    <!-- ================= VIEW 1: DASHBOARD ================= -->
+    <div id="viewDashboard" class="view-section active">
+
+      <!-- Metrics Row -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap blue"><span>📋</span></div>
+          <div class="kpi-data">
+            <div class="kpi-label">Total City Issues</div>
+            <div class="kpi-value" id="kpiTotal">–</div>
+            <div class="kpi-trend up">↑ Live <span>database</span></div>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap amber"><span>⏳</span></div>
+          <div class="kpi-data">
+            <div class="kpi-label">Dept Open Active</div>
+            <div class="kpi-value" id="kpiOpen">–</div>
+            <div class="kpi-trend up-amber">● In Progress</div>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap green"><span>✓</span></div>
+          <div class="kpi-data">
+            <div class="kpi-label">Resolved</div>
+            <div class="kpi-value" id="kpiResolved">–</div>
+            <div class="kpi-trend up-green">↑ Archived</div>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap red"><span>⚠️</span></div>
+          <div class="kpi-data">
+            <div class="kpi-label">Dept Critical Alerts</div>
+            <div class="kpi-value" id="kpiCritical">0</div>
+            <div class="kpi-trend down-red">⚡ Immediate Action</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Dashboard Grid -->
+      <div class="dashboard-grid">
+        <!-- Left: Map Widget -->
+        <div class="panel map-panel">
+          <div class="map-controls-header">
+            <div class="map-legend-pills">
+              <span class="map-legend-tag"><span class="dot-color red"></span> Traffic</span>
+              <span class="map-legend-tag"><span class="dot-color orange"></span> Road Damage</span>
+              <span class="map-legend-tag"><span class="dot-color blue"></span> Waterlogging</span>
+              <span class="map-legend-tag"><span class="dot-color green"></span> Garbage</span>
+              <span class="map-legend-tag"><span class="dot-color purple"></span> Other</span>
+            </div>
+          </div>
+          <div id="map"></div>
+        </div>
+
+        <!-- Right: Recent Issues & Donut Chart -->
+        <div class="panel-column">
+          <!-- Recent Issues List -->
+          <div class="panel list-panel">
+            <div class="panel-top">
+              <h3 id="recentDeptTitle">Recent Dept Alerts</h3>
+              <a href="#" class="link-btn" id="linkViewAllIssues">View all</a>
+            </div>
+            <div id="dashboardRecentList" class="compact-issue-list"></div>
+          </div>
+
+          <!-- Donut Breakdown -->
+          <div class="panel chart-panel">
+            <div class="panel-top">
+              <h3>Top Issue Categories</h3>
+            </div>
+            <div class="donut-wrapper">
+              <div class="chart-canvas-wrap">
+                <canvas id="categoryDonutChart"></canvas>
+              </div>
+              <div id="donutLegend" class="donut-custom-legend"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="topbar-right">
-      <div class="live-pill">
-        <span class="dot"></span>
-        <span id="liveLabel">Live · syncing…</span>
+    <!-- ================= VIEW 2: MAP VIEW ================= -->
+    <div id="viewMapView" class="view-section">
+      <div class="mapview-header">
+        <div class="filter-controls">
+          <select id="mapFilterCategory" class="filter-select">
+            <option value="all">All Department Categories</option>
+          </select>
+
+          <select id="mapFilterStatus" class="filter-select">
+            <option value="all">All Status (Open & Resolved)</option>
+            <option value="open" selected>Open / Active Only</option>
+            <option value="resolved">Resolved Only</option>
+          </select>
+        </div>
+        <div class="live-indicator">
+          <span class="pulse-dot"></span> Live Incident Feed
+        </div>
       </div>
-      <label class="role-select">
-        Viewing as
-        <select id="roleSelect">
-          <option value="Traffic Police">Traffic Police</option>
-          <option value="Road Maintenance Crew">Road Maintenance Crew</option>
-          <option value="Transit Team">Transit Team</option>
-          <option value="Citizen">Citizen</option>
-        </select>
-      </label>
+      <div class="full-map-wrap">
+        <div id="fullMap"></div>
+      </div>
     </div>
-  </header>
 
-  <main class="layout">
-
-    <section class="map-wrap">
-      <div id="map"></div>
-
-      <div class="map-hint">Click anywhere on the map to report an issue</div>
-
-      <div class="legend">
-        <div class="legend-title">Issue type</div>
-        <div class="legend-row"><span class="swatch" style="background:var(--c-pothole)"></span>Pothole</div>
-        <div class="legend-row"><span class="swatch" style="background:var(--c-signal)"></span>Signal failure</div>
-        <div class="legend-row"><span class="swatch" style="background:var(--c-water)"></span>Waterlogging</div>
-        <div class="legend-row"><span class="swatch" style="background:var(--c-bus)"></span>Bus breakdown</div>
-        <div class="legend-title" style="margin-top:10px">Corridor risk</div>
-        <div class="legend-row"><span class="swatch swatch-line" style="background:var(--risk-low)"></span>Low</div>
-        <div class="legend-row"><span class="swatch swatch-line" style="background:var(--risk-medium)"></span>Medium</div>
-        <div class="legend-row"><span class="swatch swatch-line" style="background:var(--risk-high)"></span>High</div>
-      </div>
-    </section>
-
-    <aside class="sidebar">
-
-      <div class="stat-row">
-        <div class="stat-card">
-          <span class="stat-num" id="statOpen">–</span>
-          <span class="stat-label">Open issues</span>
+    <!-- ================= VIEW 3: ISSUES TABLE ================= -->
+    <div id="viewIssues" class="view-section">
+      <div class="panel table-panel">
+        <div class="panel-top">
+          <div>
+            <h3 id="tableDeptHeader">Department Incidents & Audit Log</h3>
+            <p class="section-subtext">Viewing live tickets filtered by active department permissions.</p>
+          </div>
+          <div class="table-filters">
+            <select id="issuesStatusFilter" class="filter-select">
+              <option value="all">All Status</option>
+              <option value="open" selected>Open Only</option>
+              <option value="resolved">Resolved Only</option>
+            </select>
+          </div>
         </div>
-        <div class="stat-card">
-          <span class="stat-num" id="statResolved">–</span>
-          <span class="stat-label">Resolved</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-num" id="statPeak">–</span>
-          <span class="stat-label">Peak hour?</span>
+        <div class="table-responsive">
+          <table class="styled-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Location</th>
+                <th>Reported Time</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="allIssuesTableBody"></tbody>
+          </table>
         </div>
       </div>
+    </div>
 
-      <div class="panel">
-        <div class="panel-header">
-          <h2>Reported issues</h2>
+    <!-- ================= VIEW 4: ALERTS PANEL ================= -->
+    <div id="viewAlerts" class="view-section">
+      <div class="panel alerts-main-panel">
+        <div class="panel-top">
+          <div>
+            <h3 id="alertsDeptHeader">Priority Emergency Alerts</h3>
+            <p class="section-subtext">Real-time critical incidents requiring immediate municipal dispatch or clearance.</p>
+          </div>
+          <span class="live-indicator"><span class="pulse-dot"></span> Live Dispatch Queue</span>
         </div>
-        <div class="filter-row" id="filterRow">
-          <button class="filter-chip active" data-filter="all">All</button>
-          <button class="filter-chip" data-filter="pothole">Pothole</button>
-          <button class="filter-chip" data-filter="signal_failure">Signal</button>
-          <button class="filter-chip" data-filter="waterlogging">Water</button>
-          <button class="filter-chip" data-filter="bus_breakdown">Bus</button>
+        <div id="alertsFeedGrid" class="alerts-cards-grid">
+          <!-- Rendered dynamically -->
         </div>
-        <div id="issueList" class="issue-list"></div>
       </div>
+    </div>
 
-      <div class="panel">
-        <div class="panel-header">
-          <h2>Corridor delay forecast</h2>
+    <!-- ================= VIEW 5: ANALYTICS ================= -->
+    <div id="viewAnalytics" class="view-section">
+      <div class="analytics-grid">
+        <div class="panel">
+          <div class="panel-top">
+            <h3>Incident Trends by Area</h3>
+          </div>
+          <div style="height: 320px; position: relative;">
+            <canvas id="barAreaChart"></canvas>
+          </div>
         </div>
-        <div id="corridorList" class="corridor-list"></div>
       </div>
+    </div>
 
-    </aside>
-
-  </main>
+  </div>
 </div>
 
-<!-- Report modal -->
+<!-- ================= MODAL: REPORT AN ISSUE ================= -->
 <div id="reportModal" class="modal-backdrop hidden">
-  <form id="reportForm" class="modal" enctype="multipart/form-data">
-    <h3>Report an issue</h3>
-    <p class="modal-coords" id="modalCoords"></p>
-
-    <label>Category
-      <select name="category" id="categorySelect" required>
-        <option value="pothole">Pothole</option>
-        <option value="signal_failure">Signal failure</option>
-        <option value="waterlogging">Waterlogging</option>
-        <option value="bus_breakdown">Bus breakdown</option>
-      </select>
-    </label>
-
-    <label>What's happening?
-      <textarea name="description" rows="3" placeholder="e.g. Deep pothole causing buses to swerve" required></textarea>
-    </label>
-
-    <label>Photo (optional)
-      <input type="file" name="photo" accept="image/*" />
-    </label>
-
-    <div class="modal-actions">
-      <button type="button" id="cancelReport" class="btn-ghost">Cancel</button>
-      <button type="submit" class="btn-primary">Submit report</button>
+  <div class="modal modal-card">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <button type="button" class="btn-back" id="btnCancelReport">←</button>
+        <h3>Report an Incident</h3>
+      </div>
+      <button type="button" class="btn-close-modal" id="btnCloseReportX">&times;</button>
     </div>
-  </form>
+
+    <form id="reportForm" enctype="multipart/form-data">
+      <div class="form-group">
+        <label>Issue Type</label>
+        <select name="category" id="categorySelect" required class="form-control">
+          <option value="pothole">Road Damage / Pothole</option>
+          <option value="signal_failure">Traffic Signal Failure</option>
+          <option value="accident">Road Accident</option>
+          <option value="waterlogging">Waterlogging</option>
+          <option value="open_manhole">Open Manhole</option>
+          <option value="fire">Fire Outbreak</option>
+          <option value="trash">Garbage Overflow</option>
+          <option value="dead_animal">Dead Animal Carcass</option>
+          <option value="open_sewage">Open Sewage</option>
+          <option value="bus_breakdown">Bus Breakdown</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Location</label>
+        <div class="location-input-wrap">
+          <input type="text" id="reportLocationDisplay" placeholder="Detecting live GPS coordinates..." readonly class="form-control location-input" />
+          <button type="button" id="btnRefreshGps" class="btn-gps-target" title="Detect Current GPS">🎯</button>
+        </div>
+        <div class="coords-subtext" id="coordsSubtext">Lat: 18.52040, Lng: 73.85670</div>
+      </div>
+
+      <div class="form-group">
+        <label>Description</label>
+        <textarea name="description" rows="3" placeholder="Describe the issue, situation, or hazard..." required class="form-control"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Severity</label>
+        <div class="severity-btn-group">
+          <button type="button" class="btn-severity" data-severity="low">Low</button>
+          <button type="button" class="btn-severity" data-severity="medium">Medium</button>
+          <button type="button" class="btn-severity active" data-severity="high">High</button>
+          <button type="button" class="btn-severity" data-severity="critical">Critical</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Add Photo (Optional)</label>
+        <input type="file" name="photo" id="photoInput" accept="image/*" class="form-control" />
+      </div>
+
+      <button type="submit" id="btnSubmitReport" class="btn-submit-green">Submit Alert</button>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL: ISSUE DETAILS & RESOLUTION ================= -->
+<div id="detailModal" class="modal-backdrop hidden">
+  <div class="modal modal-card detail-modal-card">
+    <div class="modal-header">
+      <h3>Incident Query Card</h3>
+      <div class="header-right-badges">
+        <span id="detailStatusBadge" class="severity-pill medium">Open</span>
+        <button type="button" class="btn-close-modal" id="btnCloseDetail">&times;</button>
+      </div>
+    </div>
+
+    <div class="detail-body">
+      <div class="detail-lead">
+        <div class="lead-icon" id="detailLeadIcon">🚧</div>
+        <div class="lead-text">
+          <h4 id="detailTitle">Pothole on Road</h4>
+          <p id="detailLocationStr">Swargate Main Road, Pune</p>
+          <span class="reported-sub" id="detailReportedTime">Reported just now</span>
+        </div>
+        <span id="detailSeverityBadge" class="severity-pill medium">Medium</span>
+      </div>
+
+      <div class="detail-section">
+        <h5>Description</h5>
+        <p id="detailDescription" class="desc-box">Issue description here.</p>
+      </div>
+
+      <div class="detail-meta-grid">
+        <div class="meta-row">
+          <span class="meta-label">Category</span>
+          <span class="meta-val" id="detailCategoryVal">Road Damage</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Location Coords</span>
+          <span class="meta-val" id="detailCoordsVal">18.4591, 73.8561</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Duplicates</span>
+          <span class="meta-val" id="detailDuplicatesVal">1 report</span>
+        </div>
+      </div>
+
+      <div id="detailPhotoWrap" class="detail-photo-section hidden">
+        <h5>Incident Site Photo</h5>
+        <img id="detailPhotoImg" src="" alt="Site Photo" />
+      </div>
+
+      <!-- Resolution Section -->
+      <div id="resolutionPanel" class="resolution-panel-box">
+        <h5>Department Action & Clearance</h5>
+        <p class="res-hint">A mandatory on-site confirmation photograph is required to archive this issue.</p>
+        
+        <form id="resolveForm">
+          <input type="hidden" id="resolveIssueId" name="issue_id" />
+          <div class="form-group">
+            <label>Upload Resolution Photo Proof (Compulsory)</label>
+            <input type="file" id="resolvePhotoInput" name="resolution_photo" accept="image/*" required class="form-control" />
+          </div>
+          <button type="submit" id="btnSubmitResolve" class="btn-submit-green">Mark as Resolved</button>
+        </form>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="toast" class="toast hidden"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

@@ -21,7 +21,7 @@ The app seeds ~18 realistic issues around Hinjawadi, Katraj, Swargate, and
 central Pune on first run, so the map is populated immediately — no setup
 step needed before a demo.
 
-## Functionality
+## What to show in the demo
 
 1. **Live map** — colored pins for potholes, signal failures, waterlogging,
    and bus breakdowns, clustered around Hinjawadi/Katraj/Swargate.
@@ -64,4 +64,16 @@ urbanflow-portal/
 | GET    | `/api/predictions`            | Corridor delay-risk forecast     |
 | GET    | `/api/stats`                  | Open/resolved counts by category |
 
+## Notes for judges' questions
 
+- **Why no database?** Matches the "Simple Setup" claim in the pitch — a
+  flat JSON file keeps it single-folder and zero-config for a hackathon
+  demo. Swapping in SQLite/Postgres later is a small change since all reads
+  and writes go through `load_issues()` / `save_issues()`.
+- **How does the prediction engine work?** Rule-based on purpose (fast,
+  explainable, no training data needed for a hackathon timeline): a
+  peak-hour multiplier × each corridor's base load, plus a penalty for
+  every open issue reported near that corridor in the last few hours.
+- **What's not implemented yet:** authentication/login, a real database,
+  and the WhatsApp-bot fallback mentioned in the "Strategies" slide — all
+  reasonable v2 items to mention if asked what's next.
