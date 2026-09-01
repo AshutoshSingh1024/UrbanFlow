@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>UrbanFlow Portal — Pune</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">UF</span>
+      <div class="brand-text">
+        <h1>UrbanFlow Portal</h1>
+        <span class="brand-sub">One map. One city. — Team Cypher · SIH 2026</span>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <div class="live-pill">
+        <span class="dot"></span>
+        <span id="liveLabel">Live · syncing…</span>
+      </div>
+      <label class="role-select">
+        Viewing as
+        <select id="roleSelect">
+          <option value="Traffic Police">Traffic Police</option>
+          <option value="Road Maintenance Crew">Road Maintenance Crew</option>
+          <option value="Transit Team">Transit Team</option>
+          <option value="Citizen">Citizen</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <section class="map-wrap">
+      <div id="map"></div>
+
+      <div class="map-hint">Click anywhere on the map to report an issue</div>
+
+      <div class="legend">
+        <div class="legend-title">Issue type</div>
+        <div class="legend-row"><span class="swatch" style="background:var(--c-pothole)"></span>Pothole</div>
+        <div class="legend-row"><span class="swatch" style="background:var(--c-signal)"></span>Signal failure</div>
+        <div class="legend-row"><span class="swatch" style="background:var(--c-water)"></span>Waterlogging</div>
+        <div class="legend-row"><span class="swatch" style="background:var(--c-bus)"></span>Bus breakdown</div>
+        <div class="legend-title" style="margin-top:10px">Corridor risk</div>
+        <div class="legend-row"><span class="swatch swatch-line" style="background:var(--risk-low)"></span>Low</div>
+        <div class="legend-row"><span class="swatch swatch-line" style="background:var(--risk-medium)"></span>Medium</div>
+        <div class="legend-row"><span class="swatch swatch-line" style="background:var(--risk-high)"></span>High</div>
+      </div>
+    </section>
+
+    <aside class="sidebar">
+
+      <div class="stat-row">
+        <div class="stat-card">
+          <span class="stat-num" id="statOpen">–</span>
+          <span class="stat-label">Open issues</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-num" id="statResolved">–</span>
+          <span class="stat-label">Resolved</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-num" id="statPeak">–</span>
+          <span class="stat-label">Peak hour?</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Reported issues</h2>
+        </div>
+        <div class="filter-row" id="filterRow">
+          <button class="filter-chip active" data-filter="all">All</button>
+          <button class="filter-chip" data-filter="pothole">Pothole</button>
+          <button class="filter-chip" data-filter="signal_failure">Signal</button>
+          <button class="filter-chip" data-filter="waterlogging">Water</button>
+          <button class="filter-chip" data-filter="bus_breakdown">Bus</button>
+        </div>
+        <div id="issueList" class="issue-list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Corridor delay forecast</h2>
+        </div>
+        <div id="corridorList" class="corridor-list"></div>
+      </div>
+
+    </aside>
+
+  </main>
+</div>
+
+<!-- Report modal -->
+<div id="reportModal" class="modal-backdrop hidden">
+  <form id="reportForm" class="modal" enctype="multipart/form-data">
+    <h3>Report an issue</h3>
+    <p class="modal-coords" id="modalCoords"></p>
+
+    <label>Category
+      <select name="category" id="categorySelect" required>
+        <option value="pothole">Pothole</option>
+        <option value="signal_failure">Signal failure</option>
+        <option value="waterlogging">Waterlogging</option>
+        <option value="bus_breakdown">Bus breakdown</option>
+      </select>
+    </label>
+
+    <label>What's happening?
+      <textarea name="description" rows="3" placeholder="e.g. Deep pothole causing buses to swerve" required></textarea>
+    </label>
+
+    <label>Photo (optional)
+      <input type="file" name="photo" accept="image/*" />
+    </label>
+
+    <div class="modal-actions">
+      <button type="button" id="cancelReport" class="btn-ghost">Cancel</button>
+      <button type="submit" class="btn-primary">Submit report</button>
+    </div>
+  </form>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
