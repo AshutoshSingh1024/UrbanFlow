@@ -4,6 +4,12 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>UrbanFlow — Unified Municipal Command & Emergency Dispatch</title>
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#0e131f" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="UrbanFlow" />
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -11,7 +17,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<link rel="stylesheet" href="/static/style.css?v=3.5" />
+<link rel="stylesheet" href="/static/style.css?v=7.0" />
 </head>
 <body>
 
@@ -81,6 +87,7 @@
 
 <!-- ================= MAIN APPLICATION ================= -->
 <div class="app-container">
+  <div id="sidebarBackdrop" class="sidebar-backdrop hidden"></div>
 
   <!-- LEFT SIDEBAR -->
   <aside class="sidebar">
@@ -145,13 +152,18 @@
 
     <!-- Top Header -->
     <header class="top-header">
-      <div class="greeting-wrap">
-        <h1><span class="translatable">Welcome,</span> <span id="headerGreetingName">Officer</span></h1>
-        <p id="topSubtext" class="translatable">Monitoring live municipal incidents across Pune City.</p>
+      <div class="header-left-wrap">
+        <button id="btnMobileMenuToggle" class="btn-mobile-menu" type="button" aria-label="Toggle Navigation Menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="greeting-wrap">
+          <h1><span class="translatable">Welcome,</span> <span id="headerGreetingName">Officer</span></h1>
+          <p id="topSubtext" class="translatable">Monitoring live municipal incidents across Pune City.</p>
+        </div>
       </div>
 
       <div class="header-actions">
-        <!-- Dynamic Language Switcher -->
+        <!-- Language Switcher -->
         <div class="dropdown-pill lang-pill">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
           <select id="langSelect">
@@ -161,6 +173,7 @@
           </select>
         </div>
 
+        <!-- Dept Switcher -->
         <div class="dropdown-pill dept-pill" id="deptPillWrapper">
           <span class="role-label translatable">Dept:</span>
           <select id="roleSelect">
@@ -183,6 +196,8 @@
 
     <!-- VIEW 1: DASHBOARD -->
     <div id="viewDashboard" class="view-section active">
+      
+      <!-- KPI Row -->
       <div class="kpi-grid">
         <div class="kpi-card">
           <div class="kpi-icon-wrap blue">
@@ -191,7 +206,7 @@
           <div class="kpi-data">
             <div class="kpi-label translatable">Total Dept Issues</div>
             <div class="kpi-value" id="kpiTotal">–</div>
-            <div class="kpi-trend up translatable">Active Database</div>
+            <div class="kpi-trend up translatable">Total Logged</div>
           </div>
         </div>
 
@@ -202,7 +217,7 @@
           <div class="kpi-data">
             <div class="kpi-label translatable">In Progress</div>
             <div class="kpi-value" id="kpiOpen">–</div>
-            <div class="kpi-trend up-amber translatable">Dispatched</div>
+            <div class="kpi-trend up-amber translatable">Under Action</div>
           </div>
         </div>
 
@@ -213,7 +228,7 @@
           <div class="kpi-data">
             <div class="kpi-label translatable">Resolved</div>
             <div class="kpi-value" id="kpiResolved">–</div>
-            <div class="kpi-trend up-green translatable">Archived to DB</div>
+            <div class="kpi-trend up-green translatable">Closed & Verified</div>
           </div>
         </div>
 
@@ -224,11 +239,12 @@
           <div class="kpi-data">
             <div class="kpi-label translatable">Critical Alerts</div>
             <div class="kpi-value" id="kpiCritical">0</div>
-            <div class="kpi-trend down-red translatable">High Priority</div>
+            <div class="kpi-trend down-red translatable">Immediate Action</div>
           </div>
         </div>
       </div>
 
+      <!-- Dashboard Grid: Map + Side Feed -->
       <div class="dashboard-grid">
         <div class="panel map-panel">
           <div class="map-controls-header">
@@ -265,6 +281,20 @@
           </div>
         </div>
       </div>
+
+      <!-- Transit & Logistics + Predictive Analytics Layer Panel -->
+      <div class="panel transit-analytics-panel">
+        <div class="panel-top">
+          <div>
+            <h3 class="translatable">Transit Corridors & AI Predictive Delay Rerouting</h3>
+            <p class="section-subtext translatable">Live corridor throughput, peak-hour delay penalty modeling, and public transport bottleneck detection.</p>
+          </div>
+          <span id="networkPeakBadge" class="severity-pill medium">PHF: 0.92 (Peak Window)</span>
+        </div>
+
+        <div id="corridorCardsGrid" class="corridor-cards-grid"></div>
+      </div>
+
     </div>
 
     <!-- VIEW 2: MAP VIEW -->
@@ -420,7 +450,7 @@
 
           <div class="form-group">
             <label class="translatable">Next Auto-Generated ID</label>
-            <input type="text" id="newStaffGeneratedId" readonly class="form-control generated-id-box" value="Loading ID..." />
+            <input type="text" id="newStaffGeneratedId" readonly class="form-control generated-id-box" value="Generating ID..." />
           </div>
 
           <div class="form-group">
@@ -588,7 +618,7 @@
             <label class="translatable">Upload Resolution Photo Proof (Compulsory)</label>
             <input type="file" id="resolvePhotoInput" name="resolution_photo" accept="image/*" required class="form-control" />
           </div>
-          <button type="submit" id="btnSubmitResolve" class="btn-submit-green translatable">Mark as Resolved & Archive to DB</button>
+          <button type="submit" id="btnSubmitResolve" class="btn-submit-green translatable">Mark as Resolved</button>
         </form>
       </div>
     </div>

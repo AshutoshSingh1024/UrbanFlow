@@ -100,6 +100,70 @@ async function applyDynamicPageTranslation(targetLang) {
   });
 }
 
+// ---------------- ID PREVIEW GENERATOR (FOR ADMIN) ----------------
+async function updateGeneratedIdPreview() {
+  const deptSelect = document.getElementById("newStaffDept");
+  const previewInput = document.getElementById("newStaffGeneratedId");
+  if (!deptSelect || !previewInput) return;
+
+  try {
+    const res = await fetch(`/api/auth/preview-id?department=${encodeURIComponent(deptSelect.value)}`);
+    if (!res.ok) throw new Error("Failed to preview ID");
+    const data = await res.json();
+    previewInput.value = data.suggested_id;
+  } catch (err) {
+    console.error("Preview error:", err);
+    previewInput.value = "Error generating ID";
+  }
+}
+
+// ---------------- TRANSIT CORRIDOR & PREDICTIVE ANALYTICS ----------------
+async function loadCorridorAnalytics() {
+  try {
+    const res = await fetch("/api/analytics/corridors");
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const badge = document.getElementById("networkPeakBadge");
+    if (badge) {
+      badge.textContent = `PHF: ${data.peak_hour_factor} (${data.is_peak ? 'Peak Window' : 'Off-Peak'})`;
+      badge.className = `severity-pill ${data.is_peak ? 'high' : 'low'}`;
+    }
+
+    const grid = document.getElementById("corridorCardsGrid");
+    if (!grid) return;
+
+    grid.innerHTML = data.corridors.map(c => `
+      <div class="corridor-card ${c.transit_bottleneck ? 'has-bottleneck' : ''}">
+        <div class="corridor-header">
+          <strong>${c.name}</strong>
+          <span class="throughput-tag ${c.throughput_pct < 50 ? 'bad' : 'good'}">
+            ${c.throughput_pct}% Throughput
+          </span>
+        </div>
+
+        <div class="corridor-metrics">
+          <div>Estimated Travel: <strong>${c.predicted_mins} mins</strong> <small>(+${c.delay_added_mins}m delay)</small></div>
+          <div>Active Hazards: <strong>${c.incident_count}</strong></div>
+        </div>
+
+        ${c.transit_bottleneck ? `
+          <div class="bottleneck-warning">
+            ⚠️ <strong>Transit Bottleneck:</strong> Delaying ${c.transit_routes.join(", ")}
+          </div>
+        ` : ''}
+
+        <div class="reroute-box">
+          <small>Proactive Route Guidance:</small>
+          <div>${c.reroute_advisory}</div>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) {
+    console.warn("Could not load corridor analytics:", e);
+  }
+}
+
 // ---------------- AUTHENTICATION ----------------
 function checkSession() {
   const saved = localStorage.getItem("urbanflow_auth");
@@ -132,6 +196,7 @@ function applyUserSession(user) {
     roleSelect.value = "Admin";
     adminNav.style.display = "flex";
     allIssuesNav.style.display = "flex";
+    updateGeneratedIdPreview();
   } else {
     deptPill.style.display = "none";
     roleSelect.value = user.department;
@@ -242,6 +307,7 @@ async function refreshAll() {
     renderIssuesTable();
     renderAlertsPanel();
     renderNotices(noticesCache);
+    loadCorridorAnalytics();
 
     if (currentUser && currentUser.department === "Admin") {
       renderAdminMasterIssuesTable();
@@ -567,6 +633,41 @@ function showToast(msg) {
 document.addEventListener("DOMContentLoaded", () => {
   checkSession();
 
+  // Desktop and Mobile Menu Toggle
+  const menuToggleBtn = document.getElementById("btnMobileMenuToggle");
+  const sidebar = document.querySelector(".sidebar");
+  const backdrop = document.getElementById("sidebarBackdrop");
+
+  function toggleSidebar() {
+    if (window.innerWidth <= 768) {
+      const isOpen = sidebar.classList.contains("open");
+      if (isOpen) {
+        sidebar.classList.remove("open");
+        backdrop.classList.add("hidden");
+      } else {
+        sidebar.classList.add("open");
+        backdrop.classList.remove("hidden");
+      }
+    } else {
+      sidebar.classList.toggle("desktop-collapsed");
+      setTimeout(() => {
+        if (map) map.invalidateSize();
+        if (fullMap) fullMap.invalidateSize();
+      }, 250);
+    }
+  }
+
+  if (menuToggleBtn) {
+    menuToggleBtn.addEventListener("click", toggleSidebar);
+  }
+
+  if (backdrop) {
+    backdrop.addEventListener("click", () => {
+      sidebar.classList.remove("open");
+      backdrop.classList.add("hidden");
+    });
+  }
+
   // Dynamic Language Switcher Listener
   document.getElementById("langSelect").addEventListener("change", async (e) => {
     const lang = e.target.value;
@@ -646,6 +747,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (view === "admin-users") {
         document.getElementById("viewAdminUsers").classList.add("active");
+        updateGeneratedIdPreview();
+      }
+
+      if (window.innerWidth <= 768) {
+        sidebar.classList.remove("open");
+        backdrop.classList.add("hidden");
       }
     });
   });
@@ -660,6 +767,56 @@ document.addEventListener("DOMContentLoaded", () => {
     refreshAll();
     showToast(`Switched perspective to ${currentDepartment}`);
   });
+
+  // Admin ID Preview on Department Change
+  const deptSelect = document.getElementById("newStaffDept");
+  if (deptSelect) {
+    deptSelect.addEventListener("change", updateGeneratedIdPreview);
+  }
+
+  // Admin Register Staff Form Handler
+  const createStaffForm = document.getElementById("createStaffForm");
+  if (createStaffForm) {
+    createStaffForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const dept = document.getElementById("newStaffDept").value;
+      const name = document.getElementById("newStaffName").value.trim();
+      const password = document.getElementById("newStaffPassword").value;
+      const btn = document.getElementById("btnCreateStaff");
+
+      btn.disabled = true;
+      btn.textContent = "Registering Officer...";
+
+      const formData = new FormData();
+      formData.append("department", dept);
+      formData.append("name", name);
+      formData.append("password", password);
+
+      try {
+        const res = await fetch("/api/auth/register-staff", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.detail || "Registration failed");
+        }
+
+        const data = await res.json();
+        showToast(`Staff Created! Assigned ID: ${data.user_id}`);
+
+        document.getElementById("newStaffName").value = "";
+        document.getElementById("newStaffPassword").value = "";
+        await updateGeneratedIdPreview();
+      } catch (err) {
+        showToast(`Error: ${err.message}`);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Register Officer & Save ID to Database";
+      }
+    });
+  }
 
   // Master Filter Handlers
   document.getElementById("adminMasterDeptFilter").addEventListener("change", renderAdminMasterIssuesTable);
@@ -763,4 +920,13 @@ document.addEventListener("DOMContentLoaded", () => {
       showToast("Resolution failed. Check server logs.");
     }
   });
+
+  // ServiceWorker for PWA
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js")
+        .then((reg) => console.log("UrbanFlow ServiceWorker registered:", reg.scope))
+        .catch((err) => console.warn("ServiceWorker registration failed:", err));
+    });
+  }
 });

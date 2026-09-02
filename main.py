@@ -1,10 +1,11 @@
 """
 UrbanFlow Portal — Enterprise RBAC, All-Issues Master View, Reverse Geocoding, 
-Notices Broadcast, and Dynamic Real-Time Translation Pipeline.
-Python 3.13 Compatible (Standard library hashlib/secrets for authentication).
+Notices Broadcast, Dynamic Translation, Mobile PWA/CORS integration,
+Transit & Logistics Layer, and Dynamic Traffic Flow Engine (BPR Capacity Degradation Model).
 """
 import hashlib
 import math
+import os
 import random
 import secrets
 import uuid
@@ -15,6 +16,7 @@ from typing import Generator, Optional
 
 from deep_translator import GoogleTranslator
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -177,7 +179,7 @@ def get_resolved_db() -> Generator[Session, None, None]:
 
 
 # ---------------------------------------------------------------------------
-# Locality Geocoding & Translation Engine
+# Locality Geocoding & Distance Calculation
 # ---------------------------------------------------------------------------
 PUNE_LOCALITIES = [
     {"name": "Hinjawadi", "lat": 18.5908, "lng": 73.7392},
@@ -209,9 +211,6 @@ def resolve_locality_name(lat: float, lng: float) -> str:
     return f"{closest['name']} Outskirts"
 
 
-# ---------------------------------------------------------------------------
-# Department Prefixes & Categories
-# ---------------------------------------------------------------------------
 DEPT_PREFIXES = {
     "Admin": "ADM",
     "Traffic Police": "TRF",
@@ -252,9 +251,6 @@ def generate_next_user_id(department: str, db: Session) -> str:
     return f"{prefix}{str(max_num + 1).zfill(3)}"
 
 
-# ---------------------------------------------------------------------------
-# In-Memory Cached Dynamic Translation Engine
-# ---------------------------------------------------------------------------
 @lru_cache(maxsize=4096)
 def perform_translation(text: str, target_lang: str) -> str:
     if not text or not text.strip() or target_lang == "en":
@@ -262,8 +258,7 @@ def perform_translation(text: str, target_lang: str) -> str:
     try:
         translated = GoogleTranslator(source="auto", target=target_lang).translate(text)
         return translated or text
-    except Exception as e:
-        print(f"[Translation Engine Error]: {e}")
+    except Exception:
         return text
 
 
@@ -361,9 +356,74 @@ seed_data_if_empty()
 
 
 # ---------------------------------------------------------------------------
+# Dynamic Traffic Flow Engine (BPR Capacity Degradation Model)
+# ---------------------------------------------------------------------------
+PUNE_CORRIDORS = [
+    {
+        "id": "COR_01",
+        "name": "Shivajinagar - Hinjawadi IT Corridor",
+        "baseline_mins": 32.0,
+        "capacity_vph": 4800,
+        "localities": ["Shivajinagar", "Aundh", "Baner", "Wakad", "Hinjawadi"],
+        "transit_routes": ["Bus Line 100", "Metro Line 3 Feeder"],
+        "bypass_route": "Divert via Baner-Pashan Link Road to Wakad Flyover"
+    },
+    {
+        "id": "COR_02",
+        "name": "Swargate - Katraj Spine",
+        "baseline_mins": 22.0,
+        "capacity_vph": 3600,
+        "localities": ["Swargate", "Katraj"],
+        "transit_routes": ["BRTS Route 2", "PMPML Express"],
+        "bypass_route": "Divert via Bibwewadi-Kondhwa Link to avoid main junction"
+    },
+    {
+        "id": "COR_03",
+        "name": "Shivajinagar - Viman Nagar / Airport",
+        "baseline_mins": 26.0,
+        "capacity_vph": 4200,
+        "localities": ["Shivajinagar", "Koregaon Park", "Kalyani Nagar", "Viman Nagar"],
+        "transit_routes": ["Airport Shuttles", "Bus Line 204"],
+        "bypass_route": "Divert via Sangamwadi BRT road & Bund Garden link"
+    }
+]
+
+# Physical capacity reduction factor per incident type (fraction of road capacity choked)
+INCIDENT_CAPACITY_IMPACT = {
+    "accident": 0.35,          # Takes down ~1 lane
+    "building_collapse": 0.60, # Major arterial choke
+    "fire": 0.45,
+    "waterlogging": 0.40,
+    "bus_breakdown": 0.25,
+    "signal_failure": 0.20,
+    "open_manhole": 0.10,
+    "pothole": 0.04,           # Minor braking speed drop
+    "open_sewage": 0.08,
+    "trash": 0.03,
+    "dead_animal": 0.05,
+}
+
+HOURLY_DEMAND_CURVE = {
+    0: 0.12, 1: 0.08, 2: 0.05, 3: 0.05, 4: 0.08, 5: 0.18,
+    6: 0.35, 7: 0.60, 8: 0.88, 9: 0.98, 10: 0.92, 11: 0.78,
+    12: 0.70, 13: 0.68, 14: 0.72, 15: 0.78, 16: 0.85, 17: 0.95,
+    18: 1.02, 19: 0.98, 20: 0.85, 21: 0.65, 22: 0.45, 23: 0.25
+}
+
+
+# ---------------------------------------------------------------------------
 # FastAPI Application & Endpoints
 # ---------------------------------------------------------------------------
 app = FastAPI(title="UrbanFlow Command Portal")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -371,6 +431,16 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/")
 def root():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/sw.js")
+def service_worker():
+    return FileResponse(STATIC_DIR / "sw.js", media_type="application/javascript")
+
+
+@app.get("/manifest.json")
+def manifest():
+    return FileResponse(STATIC_DIR / "manifest.json", media_type="application/json")
 
 
 @app.post("/api/translate/batch")
@@ -406,7 +476,7 @@ def login(
 @app.get("/api/auth/preview-id")
 def preview_id(department: str, db: Session = Depends(get_open_db)):
     if department not in DEPT_PREFIXES:
-        raise HTTPException(400, "Invalid department")
+        raise HTTPException(400, "Invalid department chosen")
     return {"suggested_id": generate_next_user_id(department, db)}
 
 
@@ -418,9 +488,9 @@ def register_staff(
     db: Session = Depends(get_open_db),
 ):
     if department not in DEPT_PREFIXES:
-        raise HTTPException(400, "Invalid department")
+        raise HTTPException(400, f"Department must be one of: {list(DEPT_PREFIXES.keys())}")
     if len(password) < 4:
-        raise HTTPException(400, "Password must be at least 4 characters")
+        raise HTTPException(400, "Password must be at least 4 characters long")
 
     user_id = generate_next_user_id(department, db)
     hashed_pwd = hash_password(password)
@@ -453,7 +523,7 @@ def create_notice(
     open_db: Session = Depends(get_open_db),
 ):
     if department == "Citizen":
-        raise HTTPException(403, "Citizen users are not authorized to publish municipal notices.")
+        raise HTTPException(403, "Public users are not authorized to publish municipal notices.")
 
     notice = NoticeModel(
         title=title.strip(),
@@ -547,7 +617,7 @@ async def resolve_issue(
     resolved_db: Session = Depends(get_resolved_db),
 ):
     if not resolution_photo or not resolution_photo.filename:
-        raise HTTPException(400, "Compulsory on-site proof photo is required.")
+        raise HTTPException(400, "Compulsory on-site proof photo is required to resolve this alert.")
 
     open_issue = open_db.query(IssueModel).filter(IssueModel.id == issue_id).first()
     if not open_issue:
@@ -609,4 +679,68 @@ def get_stats(
         "total_open": len(open_issues),
         "total_resolved": resolved_count,
         "by_category": by_category,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Transit & Predictive Analytics API Endpoint (Dynamic BPR Model)
+# ---------------------------------------------------------------------------
+@app.get("/api/analytics/corridors")
+def get_corridor_analytics(open_db: Session = Depends(get_open_db)):
+    current_hour = datetime.now().hour
+    base_demand_ratio = HOURLY_DEMAND_CURVE.get(current_hour, 0.70)
+    is_peak = base_demand_ratio >= 0.88
+    phf = round(0.70 + (base_demand_ratio * 0.24), 2)
+
+    active_issues = open_db.query(IssueModel).filter(IssueModel.status == "open").all()
+    corridor_reports = []
+
+    for cor in PUNE_CORRIDORS:
+        matching = [i for i in active_issues if i.near in cor["localities"]]
+        
+        total_choke = sum(INCIDENT_CAPACITY_IMPACT.get(i.category, 0.05) for i in matching)
+        effective_capacity_factor = max(0.28, 1.0 - min(0.72, total_choke))
+        effective_capacity = cor["capacity_vph"] * effective_capacity_factor
+        
+        current_volume = cor["capacity_vph"] * base_demand_ratio
+        
+        vc_ratio = current_volume / effective_capacity
+        alpha = 0.15
+        beta = 3.5
+        
+        predicted_travel_time = cor["baseline_mins"] * (1.0 + alpha * (vc_ratio ** beta))
+        predicted_travel_time = round(min(cor["baseline_mins"] * 2.6, predicted_travel_time), 1)
+        delay_added = round(max(0.0, predicted_travel_time - cor["baseline_mins"]), 1)
+        
+        throughput_pct = round(max(20, min(100, (cor["baseline_mins"] / predicted_travel_time) * 100)))
+        
+        transit_bottleneck = any(i.category in ["bus_breakdown", "accident", "waterlogging", "signal_failure"] for i in matching)
+        
+        if delay_added >= 15.0:
+            reroute_msg = cor["bypass_route"]
+        elif delay_added >= 6.0:
+            reroute_msg = f"Moderate slow-down. Stay in main lanes, avoid side kerbs near {matching[0].near if matching else 'junctions'}."
+        else:
+            reroute_msg = "Corridor operating at nominal speeds. No detour required."
+
+        corridor_reports.append({
+            "corridor_id": cor["id"],
+            "name": cor["name"],
+            "baseline_mins": cor["baseline_mins"],
+            "predicted_mins": predicted_travel_time,
+            "delay_added_mins": delay_added,
+            "throughput_pct": throughput_pct,
+            "incident_count": len(matching),
+            "transit_routes": cor["transit_routes"],
+            "transit_bottleneck": transit_bottleneck,
+            "reroute_advisory": reroute_msg,
+            "peak_hour_factor": phf,
+            "is_peak": is_peak,
+        })
+
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "peak_hour_factor": phf,
+        "network_status": "Peak Period Grid Load" if is_peak else "Off-Peak Regulated Flow",
+        "corridors": corridor_reports
     }
