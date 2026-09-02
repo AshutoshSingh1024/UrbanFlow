@@ -3,83 +3,166 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>UrbanFlow — Smart City Operations & Incident Portal</title>
-<!-- Google Fonts: Inter -->
+<title>UrbanFlow — Unified Municipal Command & Emergency Dispatch</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<!-- Leaflet CSS & JS -->
+<!-- Leaflet & Chart.js -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<link rel="stylesheet" href="/static/style.css" />
+<link rel="stylesheet" href="/static/style.css?v=3.5" />
 </head>
 <body>
 
+<!-- AUTHENTICATION OVERLAY -->
+<div id="authOverlay" class="auth-overlay">
+  <div class="auth-card">
+    
+    <div class="demo-info-wrapper">
+      <button type="button" class="btn-demo-info" aria-label="Demo Credentials Info">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      </button>
+      <div class="demo-tooltip">
+        <div class="tooltip-header">Department Demo Accounts</div>
+        <div class="tooltip-row"><span>Admin:</span> <code>ADM001</code> <small>(admin123)</small></div>
+        <div class="tooltip-row"><span>Traffic:</span> <code>TRF001</code> <small>(traffic123)</small></div>
+        <div class="tooltip-row"><span>Road & Infra:</span> <code>RDM001</code> <small>(road123)</small></div>
+        <div class="tooltip-row"><span>Fire & Rescue:</span> <code>FIR001</code> <small>(fire123)</small></div>
+        <div class="tooltip-row"><span>EMS Medical:</span> <code>EMS001</code> <small>(ems123)</small></div>
+        <div class="tooltip-row"><span>Sanitation:</span> <code>SWM001</code> <small>(clean123)</small></div>
+        <div class="tooltip-row"><span>Transit:</span> <code>TRN001</code> <small>(transit123)</small></div>
+      </div>
+    </div>
+
+    <div class="auth-brand">
+      <div class="auth-logo-box">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <h2>UrbanFlow Portal</h2>
+      <p class="translatable">Municipal Dispatch & Incident Management</p>
+    </div>
+
+    <form id="loginForm" class="auth-form-clean">
+      <div class="input-field-group">
+        <label for="loginUserId" class="translatable">Department User ID</label>
+        <div class="input-box-wrap">
+          <span class="field-icon-svg">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><line x1="15" y1="8" x2="17" y2="8"/><line x1="15" y1="12" x2="17" y2="12"/></svg>
+          </span>
+          <input type="text" id="loginUserId" placeholder="e.g. TRF001, ADM001" required autocomplete="username" />
+        </div>
+        <span class="field-hint">Format: 3-letter prefix + 3 digits</span>
+      </div>
+
+      <div class="input-field-group">
+        <label for="loginPassword" class="translatable">Security Password</label>
+        <div class="input-box-wrap">
+          <span class="field-icon-svg">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </span>
+          <input type="password" id="loginPassword" placeholder="••••••••" required autocomplete="current-password" />
+        </div>
+      </div>
+
+      <button type="submit" id="btnLoginSubmit" class="btn-auth-primary">
+        <span class="translatable">Authenticate & Enter</span>
+        <span>→</span>
+      </button>
+
+      <div class="auth-divider"><span>OR</span></div>
+
+      <button type="button" id="btnCitizenAccess" class="btn-auth-citizen translatable">
+        Continue as Citizen (Public View)
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MAIN APPLICATION ================= -->
 <div class="app-container">
 
-  <!-- ================= LEFT SIDEBAR ================= -->
+  <!-- LEFT SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-brand">
       <div class="brand-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-        </svg>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
       </div>
       <h2>UrbanFlow</h2>
     </div>
 
     <nav class="sidebar-nav">
       <a href="#" class="nav-item active" data-view="dashboard">
-        <span class="nav-icon">📊</span> Dashboard
+        <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span class="translatable">Dashboard</span>
       </a>
       <a href="#" class="nav-item" data-view="mapview">
-        <span class="nav-icon">🗺️</span> Map View
+        <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+        <span class="translatable">Map View</span>
       </a>
       <a href="#" class="nav-item" data-view="issues">
-        <span class="nav-icon">📋</span> Issues
+        <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span class="translatable">Department Issues</span>
       </a>
+      
+      <!-- ALL ISSUES MASTER VIEW (Admin Only) -->
+      <a href="#" class="nav-item" id="navAllIssuesAdmin" data-view="all-issues" style="display:none;">
+        <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span class="translatable">All Issues (City-wide)</span>
+      </a>
+
+      <a href="#" class="nav-item" data-view="notices">
+        <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="translatable">Official Notices</span>
+      </a>
+
       <a href="#" class="nav-item" data-view="alerts">
-        <span class="nav-icon">🔔</span> Alerts
+        <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 22 20 2 20 12 2"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span class="translatable">Alerts Queue</span>
         <span class="nav-badge" id="badgeCritical">0</span>
       </a>
-      <a href="#" class="nav-item" data-view="analytics">
-        <span class="nav-icon">📈</span> Analytics
+
+      <a href="#" class="nav-item" id="navAdminCreateUser" data-view="admin-users" style="display:none;">
+        <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+        <span class="translatable">Add Staff ID</span>
       </a>
     </nav>
 
     <div class="sidebar-footer">
-      <div class="user-avatar">AD</div>
+      <div class="user-avatar" id="sidebarAvatar">AD</div>
       <div class="user-info">
-        <div class="user-name">Admin</div>
-        <div class="user-role" id="sidebarRoleLabel">Traffic Police</div>
+        <div class="user-name" id="sidebarUserName">Admin</div>
+        <div class="user-role" id="sidebarRoleLabel">ADM001 · Admin</div>
       </div>
+      <button id="btnLogout" class="btn-logout" title="Sign out">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
     </div>
   </aside>
 
-  <!-- ================= MAIN CONTENT WRAPPER ================= -->
+  <!-- MAIN WRAPPER -->
   <div class="main-wrapper">
 
     <!-- Top Header -->
     <header class="top-header">
       <div class="greeting-wrap">
-        <h1>Command Portal <span class="wave">👋</span></h1>
-        <p id="topSubtext">Monitoring live municipal incidents across Pune City.</p>
+        <h1><span class="translatable">Welcome,</span> <span id="headerGreetingName">Officer</span></h1>
+        <p id="topSubtext" class="translatable">Monitoring live municipal incidents across Pune City.</p>
       </div>
 
       <div class="header-actions">
-        <!-- City Selector -->
-        <div class="dropdown-pill">
-          <select id="citySelect">
-            <option>Pune City</option>
-            <option>Pimpri-Chinchwad</option>
+        <!-- Dynamic Language Switcher -->
+        <div class="dropdown-pill lang-pill">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <select id="langSelect">
+            <option value="en">English (EN)</option>
+            <option value="hi">हिंदी (HI)</option>
+            <option value="mr">मराठी (MR)</option>
           </select>
         </div>
 
-        <!-- Department / Role Switcher -->
-        <div class="dropdown-pill dept-pill">
-          <span class="role-label">Dept:</span>
+        <div class="dropdown-pill dept-pill" id="deptPillWrapper">
+          <span class="role-label translatable">Dept:</span>
           <select id="roleSelect">
             <option value="Traffic Police">Traffic Police</option>
             <option value="Road Maintenance Crew">Road & Infra</option>
@@ -88,89 +171,90 @@
             <option value="Solid Waste & Sanitation (SWM)">Sanitation</option>
             <option value="Transit Team">Transit (PMPML)</option>
             <option value="Citizen">Citizen (Public View)</option>
+            <option value="Admin">All Departments (Admin)</option>
           </select>
         </div>
 
-        <!-- Report Issue Button -->
         <button id="btnOpenReport" class="btn-primary-green" type="button">
-          <span class="plus-icon">+</span> Report Issue
+          <span>+</span> <span class="translatable">Report Issue</span>
         </button>
       </div>
     </header>
 
-    <!-- ================= VIEW 1: DASHBOARD ================= -->
+    <!-- VIEW 1: DASHBOARD -->
     <div id="viewDashboard" class="view-section active">
-
-      <!-- Metrics Row -->
       <div class="kpi-grid">
         <div class="kpi-card">
-          <div class="kpi-icon-wrap blue"><span>📋</span></div>
+          <div class="kpi-icon-wrap blue">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+          </div>
           <div class="kpi-data">
-            <div class="kpi-label">Total City Issues</div>
+            <div class="kpi-label translatable">Total Dept Issues</div>
             <div class="kpi-value" id="kpiTotal">–</div>
-            <div class="kpi-trend up">↑ Live <span>database</span></div>
+            <div class="kpi-trend up translatable">Active Database</div>
           </div>
         </div>
 
         <div class="kpi-card">
-          <div class="kpi-icon-wrap amber"><span>⏳</span></div>
+          <div class="kpi-icon-wrap amber">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
           <div class="kpi-data">
-            <div class="kpi-label">Dept Open Active</div>
+            <div class="kpi-label translatable">In Progress</div>
             <div class="kpi-value" id="kpiOpen">–</div>
-            <div class="kpi-trend up-amber">● In Progress</div>
+            <div class="kpi-trend up-amber translatable">Dispatched</div>
           </div>
         </div>
 
         <div class="kpi-card">
-          <div class="kpi-icon-wrap green"><span>✓</span></div>
+          <div class="kpi-icon-wrap green">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
           <div class="kpi-data">
-            <div class="kpi-label">Resolved</div>
+            <div class="kpi-label translatable">Resolved</div>
             <div class="kpi-value" id="kpiResolved">–</div>
-            <div class="kpi-trend up-green">↑ Archived</div>
+            <div class="kpi-trend up-green translatable">Archived to DB</div>
           </div>
         </div>
 
         <div class="kpi-card">
-          <div class="kpi-icon-wrap red"><span>⚠️</span></div>
+          <div class="kpi-icon-wrap red">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 22 20 2 20 12 2"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
           <div class="kpi-data">
-            <div class="kpi-label">Dept Critical Alerts</div>
+            <div class="kpi-label translatable">Critical Alerts</div>
             <div class="kpi-value" id="kpiCritical">0</div>
-            <div class="kpi-trend down-red">⚡ Immediate Action</div>
+            <div class="kpi-trend down-red translatable">High Priority</div>
           </div>
         </div>
       </div>
 
-      <!-- Main Dashboard Grid -->
       <div class="dashboard-grid">
-        <!-- Left: Map Widget -->
         <div class="panel map-panel">
           <div class="map-controls-header">
             <div class="map-legend-pills">
-              <span class="map-legend-tag"><span class="dot-color red"></span> Traffic</span>
-              <span class="map-legend-tag"><span class="dot-color orange"></span> Road Damage</span>
-              <span class="map-legend-tag"><span class="dot-color blue"></span> Waterlogging</span>
-              <span class="map-legend-tag"><span class="dot-color green"></span> Garbage</span>
-              <span class="map-legend-tag"><span class="dot-color purple"></span> Other</span>
+              <span class="map-legend-tag"><span class="dot-color red"></span> <span class="translatable">Traffic</span></span>
+              <span class="map-legend-tag"><span class="dot-color orange"></span> <span class="translatable">Road Damage</span></span>
+              <span class="map-legend-tag"><span class="dot-color blue"></span> <span class="translatable">Waterlogging</span></span>
+              <span class="map-legend-tag"><span class="dot-color green"></span> <span class="translatable">Sanitation</span></span>
+              <span class="map-legend-tag"><span class="dot-color purple"></span> <span class="translatable">Transit/Other</span></span>
             </div>
           </div>
           <div id="map"></div>
         </div>
 
-        <!-- Right: Recent Issues & Donut Chart -->
         <div class="panel-column">
-          <!-- Recent Issues List -->
           <div class="panel list-panel">
             <div class="panel-top">
-              <h3 id="recentDeptTitle">Recent Dept Alerts</h3>
-              <a href="#" class="link-btn" id="linkViewAllIssues">View all</a>
+              <h3 id="recentDeptTitle" class="translatable">Active Department Alerts</h3>
+              <a href="#" class="link-btn translatable" id="linkViewAllIssues">View all</a>
             </div>
             <div id="dashboardRecentList" class="compact-issue-list"></div>
           </div>
 
-          <!-- Donut Breakdown -->
           <div class="panel chart-panel">
             <div class="panel-top">
-              <h3>Top Issue Categories</h3>
+              <h3 class="translatable">Incident Category Distribution</h3>
             </div>
             <div class="donut-wrapper">
               <div class="chart-canvas-wrap">
@@ -183,36 +267,31 @@
       </div>
     </div>
 
-    <!-- ================= VIEW 2: MAP VIEW ================= -->
+    <!-- VIEW 2: MAP VIEW -->
     <div id="viewMapView" class="view-section">
       <div class="mapview-header">
         <div class="filter-controls">
           <select id="mapFilterCategory" class="filter-select">
-            <option value="all">All Department Categories</option>
+            <option value="all">All Available Categories</option>
           </select>
-
           <select id="mapFilterStatus" class="filter-select">
-            <option value="all">All Status (Open & Resolved)</option>
-            <option value="open" selected>Open / Active Only</option>
+            <option value="all">All Status</option>
+            <option value="open" selected>Open Only</option>
             <option value="resolved">Resolved Only</option>
           </select>
         </div>
-        <div class="live-indicator">
-          <span class="pulse-dot"></span> Live Incident Feed
-        </div>
+        <div class="live-indicator"><span class="pulse-dot"></span> Live GIS Feed</div>
       </div>
-      <div class="full-map-wrap">
-        <div id="fullMap"></div>
-      </div>
+      <div class="full-map-wrap"><div id="fullMap"></div></div>
     </div>
 
-    <!-- ================= VIEW 3: ISSUES TABLE ================= -->
+    <!-- VIEW 3: DEPARTMENT ISSUES TABLE -->
     <div id="viewIssues" class="view-section">
       <div class="panel table-panel">
         <div class="panel-top">
           <div>
-            <h3 id="tableDeptHeader">Department Incidents & Audit Log</h3>
-            <p class="section-subtext">Viewing live tickets filtered by active department permissions.</p>
+            <h3 id="tableDeptHeader" class="translatable">Department Audit Log</h3>
+            <p class="section-subtext translatable">Issues query table restricted to your verified department ID.</p>
           </div>
           <div class="table-filters">
             <select id="issuesStatusFilter" class="filter-select">
@@ -226,13 +305,13 @@
           <table class="styled-table">
             <thead>
               <tr>
-                <th>Category</th>
-                <th>Description</th>
-                <th>Location</th>
-                <th>Reported Time</th>
-                <th>Severity</th>
-                <th>Status</th>
-                <th>Action</th>
+                <th class="translatable">Category</th>
+                <th class="translatable">Description</th>
+                <th class="translatable">Locality / Landmark</th>
+                <th class="translatable">Reported Time</th>
+                <th class="translatable">Severity</th>
+                <th class="translatable">Status</th>
+                <th class="translatable">Action</th>
               </tr>
             </thead>
             <tbody id="allIssuesTableBody"></tbody>
@@ -241,33 +320,123 @@
       </div>
     </div>
 
-    <!-- ================= VIEW 4: ALERTS PANEL ================= -->
-    <div id="viewAlerts" class="view-section">
-      <div class="panel alerts-main-panel">
+    <!-- VIEW 4: MASTER ALL-ISSUES VIEW (ADMIN ONLY) -->
+    <div id="viewAllIssuesAdmin" class="view-section">
+      <div class="panel table-panel">
         <div class="panel-top">
           <div>
-            <h3 id="alertsDeptHeader">Priority Emergency Alerts</h3>
-            <p class="section-subtext">Real-time critical incidents requiring immediate municipal dispatch or clearance.</p>
+            <h3 class="translatable">City-Wide Master Incident Register (Admin View)</h3>
+            <p class="section-subtext translatable">Comprehensive administrative view of all civic issues across Pune municipal divisions.</p>
           </div>
-          <span class="live-indicator"><span class="pulse-dot"></span> Live Dispatch Queue</span>
+          <div class="table-filters">
+            <select id="adminMasterDeptFilter" class="filter-select">
+              <option value="all">All Departments</option>
+              <option value="Traffic Police">Traffic Police</option>
+              <option value="Road Maintenance Crew">Road & Infra</option>
+              <option value="Fire & Rescue Services">Fire & Rescue</option>
+              <option value="Emergency Medical (EMS)">Emergency Medical</option>
+              <option value="Solid Waste & Sanitation (SWM)">Sanitation</option>
+              <option value="Transit Team">Transit (PMPML)</option>
+            </select>
+            <select id="adminMasterStatusFilter" class="filter-select">
+              <option value="all">All Status</option>
+              <option value="open" selected>Open Active</option>
+              <option value="resolved">Resolved</option>
+            </select>
+          </div>
         </div>
-        <div id="alertsFeedGrid" class="alerts-cards-grid">
-          <!-- Rendered dynamically -->
+        <div class="table-responsive">
+          <table class="styled-table">
+            <thead>
+              <tr>
+                <th class="translatable">Incident Category</th>
+                <th class="translatable">Description</th>
+                <th class="translatable">Locality</th>
+                <th class="translatable">Reported By</th>
+                <th class="translatable">Reported At</th>
+                <th class="translatable">Status</th>
+                <th class="translatable">Inspection</th>
+              </tr>
+            </thead>
+            <tbody id="adminMasterIssuesTableBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
 
-    <!-- ================= VIEW 5: ANALYTICS ================= -->
-    <div id="viewAnalytics" class="view-section">
-      <div class="analytics-grid">
-        <div class="panel">
-          <div class="panel-top">
-            <h3>Incident Trends by Area</h3>
+    <!-- VIEW 5: OFFICIAL NOTICES -->
+    <div id="viewNotices" class="view-section">
+      <div class="panel notices-panel">
+        <div class="panel-top">
+          <div>
+            <h3 class="translatable">Municipal Bulletins & Public Advisories</h3>
+            <p class="section-subtext translatable">Broadcast operational notices to field workers and Pune citizens.</p>
           </div>
-          <div style="height: 320px; position: relative;">
-            <canvas id="barAreaChart"></canvas>
+          <button id="btnOpenNoticeModal" class="btn-primary-green" style="display:none;">
+            <span>+</span> <span class="translatable">Publish Advisory</span>
+          </button>
+        </div>
+        <div id="noticesFeedGrid" class="notices-grid"></div>
+      </div>
+    </div>
+
+    <!-- VIEW 6: ALERTS PANEL -->
+    <div id="viewAlerts" class="view-section">
+      <div class="panel alerts-main-panel">
+        <div class="panel-top">
+          <div>
+            <h3 id="alertsDeptHeader" class="translatable">Priority Dispatch Alerts</h3>
+            <p class="section-subtext translatable">Emergency calls matched strictly to your active departmental jurisdiction.</p>
+          </div>
+          <span class="live-indicator"><span class="pulse-dot"></span> Live Dispatch Queue</span>
+        </div>
+        <div id="alertsFeedGrid" class="alerts-cards-grid"></div>
+      </div>
+    </div>
+
+    <!-- VIEW 7: ADMIN CREATE STAFF ID VIEW -->
+    <div id="viewAdminUsers" class="view-section">
+      <div class="panel user-management-panel">
+        <div class="panel-top">
+          <div>
+            <h3 class="translatable">Generate Department Personnel ID</h3>
+            <p class="section-subtext translatable">Issue automated prefix IDs (TRF001, RDM001, etc.) and assign credentials to officers.</p>
           </div>
         </div>
+
+        <form id="createStaffForm" class="create-staff-grid">
+          <div class="form-group">
+            <label class="translatable">Department</label>
+            <select id="newStaffDept" required class="form-control">
+              <option value="Traffic Police">Traffic Police (TRF)</option>
+              <option value="Road Maintenance Crew">Road & Infra (RDM)</option>
+              <option value="Fire & Rescue Services">Fire & Rescue (FIR)</option>
+              <option value="Emergency Medical (EMS)">Medical EMS (EMS)</option>
+              <option value="Solid Waste & Sanitation (SWM)">Sanitation (SWM)</option>
+              <option value="Transit Team">Public Transit (TRN)</option>
+              <option value="Admin">System Administrator (ADM)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="translatable">Next Auto-Generated ID</label>
+            <input type="text" id="newStaffGeneratedId" readonly class="form-control generated-id-box" value="Loading ID..." />
+          </div>
+
+          <div class="form-group">
+            <label class="translatable">Officer / Staff Full Name</label>
+            <input type="text" id="newStaffName" placeholder="e.g. Officer A. Kulkarni" required class="form-control" />
+          </div>
+
+          <div class="form-group">
+            <label class="translatable">Set Officer Password</label>
+            <input type="password" id="newStaffPassword" placeholder="Set password" required class="form-control" />
+          </div>
+
+          <button type="submit" id="btnCreateStaff" class="btn-submit-green translatable" style="grid-column: 1 / -1;">
+            Register Officer & Save ID to Database
+          </button>
+        </form>
       </div>
     </div>
 
@@ -280,14 +449,14 @@
     <div class="modal-header">
       <div class="modal-title-wrap">
         <button type="button" class="btn-back" id="btnCancelReport">←</button>
-        <h3>Report an Incident</h3>
+        <h3 class="translatable">Report an Incident</h3>
       </div>
       <button type="button" class="btn-close-modal" id="btnCloseReportX">&times;</button>
     </div>
 
     <form id="reportForm" enctype="multipart/form-data">
       <div class="form-group">
-        <label>Issue Type</label>
+        <label class="translatable">Incident Category</label>
         <select name="category" id="categorySelect" required class="form-control">
           <option value="pothole">Road Damage / Pothole</option>
           <option value="signal_failure">Traffic Signal Failure</option>
@@ -303,44 +472,68 @@
       </div>
 
       <div class="form-group">
-        <label>Location</label>
+        <label class="translatable">Resolved Locality / Address</label>
         <div class="location-input-wrap">
           <input type="text" id="reportLocationDisplay" placeholder="Detecting live GPS coordinates..." readonly class="form-control location-input" />
-          <button type="button" id="btnRefreshGps" class="btn-gps-target" title="Detect Current GPS">🎯</button>
+          <button type="button" id="btnRefreshGps" class="btn-gps-target" title="Detect Current GPS">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
+          </button>
         </div>
-        <div class="coords-subtext" id="coordsSubtext">Lat: 18.52040, Lng: 73.85670</div>
+        <div class="coords-subtext" id="coordsSubtext">Locality: Locating...</div>
       </div>
 
       <div class="form-group">
-        <label>Description</label>
-        <textarea name="description" rows="3" placeholder="Describe the issue, situation, or hazard..." required class="form-control"></textarea>
+        <label class="translatable">Incident Details / Situation</label>
+        <textarea name="description" rows="3" placeholder="Describe the hazard level, lane blockage, or landmark..." required class="form-control"></textarea>
       </div>
 
       <div class="form-group">
-        <label>Severity</label>
-        <div class="severity-btn-group">
-          <button type="button" class="btn-severity" data-severity="low">Low</button>
-          <button type="button" class="btn-severity" data-severity="medium">Medium</button>
-          <button type="button" class="btn-severity active" data-severity="high">High</button>
-          <button type="button" class="btn-severity" data-severity="critical">Critical</button>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Add Photo (Optional)</label>
+        <label class="translatable">Add Photo (Optional)</label>
         <input type="file" name="photo" id="photoInput" accept="image/*" class="form-control" />
       </div>
 
-      <button type="submit" id="btnSubmitReport" class="btn-submit-green">Submit Alert</button>
+      <button type="submit" id="btnSubmitReport" class="btn-submit-green translatable">Submit Incident Alert</button>
     </form>
   </div>
 </div>
 
-<!-- ================= MODAL: ISSUE DETAILS & RESOLUTION ================= -->
+<!-- ================= MODAL: POST NOTICE (OFFICIALS ONLY) ================= -->
+<div id="noticeModal" class="modal-backdrop hidden">
+  <div class="modal modal-card">
+    <div class="modal-header">
+      <h3 class="translatable">Publish Municipal Advisory</h3>
+      <button type="button" class="btn-close-modal" id="btnCloseNoticeModal">&times;</button>
+    </div>
+
+    <form id="noticeForm">
+      <div class="form-group">
+        <label class="translatable">Advisory Title</label>
+        <input type="text" id="noticeTitle" placeholder="e.g. Swargate Pipeline Repair Diversion" required class="form-control" />
+      </div>
+
+      <div class="form-group">
+        <label class="translatable">Priority Level</label>
+        <select id="noticePriority" class="form-control">
+          <option value="standard">Standard Bulletin</option>
+          <option value="urgent">Urgent Public Warning</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="translatable">Notice Content & Instructions</label>
+        <textarea id="noticeContent" rows="4" placeholder="Detail the civic advisory, affected lanes, and recommended actions..." required class="form-control"></textarea>
+      </div>
+
+      <button type="submit" id="btnSubmitNotice" class="btn-submit-green translatable">Post Broadcast Advisory</button>
+    </form>
+  </div>
+</div>
+
+<!-- ================= QUERY CARD & RESOLUTION PROOF MODAL ================= -->
 <div id="detailModal" class="modal-backdrop hidden">
   <div class="modal modal-card detail-modal-card">
     <div class="modal-header">
-      <h3>Incident Query Card</h3>
+      <h3 class="translatable">Incident Query Card</h3>
       <div class="header-right-badges">
         <span id="detailStatusBadge" class="severity-pill medium">Open</span>
         <button type="button" class="btn-close-modal" id="btnCloseDetail">&times;</button>
@@ -349,52 +542,53 @@
 
     <div class="detail-body">
       <div class="detail-lead">
-        <div class="lead-icon" id="detailLeadIcon">🚧</div>
+        <div class="lead-icon-svg" id="detailLeadIcon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
         <div class="lead-text">
           <h4 id="detailTitle">Pothole on Road</h4>
-          <p id="detailLocationStr">Swargate Main Road, Pune</p>
+          <p id="detailLocationStr">Swargate, Pune</p>
           <span class="reported-sub" id="detailReportedTime">Reported just now</span>
         </div>
         <span id="detailSeverityBadge" class="severity-pill medium">Medium</span>
       </div>
 
       <div class="detail-section">
-        <h5>Description</h5>
+        <h5 class="translatable">Description</h5>
         <p id="detailDescription" class="desc-box">Issue description here.</p>
       </div>
 
       <div class="detail-meta-grid">
         <div class="meta-row">
-          <span class="meta-label">Category</span>
+          <span class="meta-label translatable">Category</span>
           <span class="meta-val" id="detailCategoryVal">Road Damage</span>
         </div>
         <div class="meta-row">
-          <span class="meta-label">Location Coords</span>
-          <span class="meta-val" id="detailCoordsVal">18.4591, 73.8561</span>
+          <span class="meta-label translatable">Locality</span>
+          <span class="meta-val" id="detailCoordsVal">Swargate</span>
         </div>
         <div class="meta-row">
-          <span class="meta-label">Duplicates</span>
+          <span class="meta-label translatable">Duplicates</span>
           <span class="meta-val" id="detailDuplicatesVal">1 report</span>
         </div>
       </div>
 
       <div id="detailPhotoWrap" class="detail-photo-section hidden">
-        <h5>Incident Site Photo</h5>
+        <h5 class="translatable">Incident Site Photo</h5>
         <img id="detailPhotoImg" src="" alt="Site Photo" />
       </div>
 
-      <!-- Resolution Section -->
       <div id="resolutionPanel" class="resolution-panel-box">
-        <h5>Department Action & Clearance</h5>
-        <p class="res-hint">A mandatory on-site confirmation photograph is required to archive this issue.</p>
+        <h5 class="translatable">Department Action & Clearance</h5>
+        <p class="res-hint translatable">A mandatory on-site confirmation photograph is required to archive this issue.</p>
         
         <form id="resolveForm">
           <input type="hidden" id="resolveIssueId" name="issue_id" />
           <div class="form-group">
-            <label>Upload Resolution Photo Proof (Compulsory)</label>
+            <label class="translatable">Upload Resolution Photo Proof (Compulsory)</label>
             <input type="file" id="resolvePhotoInput" name="resolution_photo" accept="image/*" required class="form-control" />
           </div>
-          <button type="submit" id="btnSubmitResolve" class="btn-submit-green">Mark as Resolved</button>
+          <button type="submit" id="btnSubmitResolve" class="btn-submit-green translatable">Mark as Resolved & Archive to DB</button>
         </form>
       </div>
     </div>
